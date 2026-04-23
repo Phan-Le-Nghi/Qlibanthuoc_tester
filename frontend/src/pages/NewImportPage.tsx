@@ -175,7 +175,7 @@ function NewImportPage() {
           soLuong: Number(item.soLuong),
           giaNhap: Number(item.giaNhap),
           soLo: item.soLo.trim(),
-          hanSuDung: item.hanSuDung
+          hanSuDung: new Date(item.hanSuDung).toISOString()
         }))
       };
 
