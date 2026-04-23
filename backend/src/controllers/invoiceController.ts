@@ -125,6 +125,7 @@ export const getAvailableProductLots = async (_req: Request, res: Response) => {
         ON ctn.MaSanPham = sp.MaSanPham
       WHERE lh.SoLuong > 0
         AND lh.HanSuDung >= CAST(GETDATE() AS DATE)
+        AND sp.TrangThai = 1
       ORDER BY sp.TenSanPham ASC, lh.HanSuDung ASC
     `);
 
