@@ -9,7 +9,7 @@ import "../styles/product.css";
 function ImportPage() {
   const navigate = useNavigate();
 
-  const userRole = localStorage.getItem("vaiTro");
+  const userRole = sessionStorage.getItem("vaiTro");
   const isAdmin = userRole === "Admin";
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [imports, setImports] = useState<ImportReceipt[]>([]);

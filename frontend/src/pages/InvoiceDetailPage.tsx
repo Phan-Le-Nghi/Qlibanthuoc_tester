@@ -41,7 +41,7 @@ function InvoiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const userRole = localStorage.getItem("vaiTro");
+  const userRole = sessionStorage.getItem("vaiTro");
   const isAdmin = userRole === "Admin";
   const isStaff = userRole === "NhanVien";
 

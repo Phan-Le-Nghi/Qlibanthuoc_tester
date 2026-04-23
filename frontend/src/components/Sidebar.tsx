@@ -17,8 +17,8 @@ function Sidebar() {
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const hoTen = localStorage.getItem("hoTen") || "Admin";
-  const vaiTro = localStorage.getItem("vaiTro") || "Quản trị viên";
+  const hoTen = sessionStorage.getItem("hoTen") || "Admin";
+  const vaiTro = sessionStorage.getItem("vaiTro") || "Quản trị viên";
 
   const navigation = [
     { name: "Tổng quan", href: "/", icon: LayoutDashboard },
@@ -33,12 +33,12 @@ function Sidebar() {
   };
 
   const confirmLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("loginTime");
-    localStorage.removeItem("username");
-    localStorage.removeItem("hoTen");
-    localStorage.removeItem("vaiTro");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("isAuthenticated");
+    sessionStorage.removeItem("loginTime");
+    sessionStorage.removeItem("username");
+    sessionStorage.removeItem("hoTen");
+    sessionStorage.removeItem("vaiTro");
     navigate("/login");
   };
 

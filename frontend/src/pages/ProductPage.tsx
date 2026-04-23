@@ -23,7 +23,7 @@ interface ProductFormData {
 }
 
 function ProductPage() {
-  const userRole = localStorage.getItem("vaiTro");
+  const userRole = sessionStorage.getItem("vaiTro");
   const isAdmin = userRole === "Admin";
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);

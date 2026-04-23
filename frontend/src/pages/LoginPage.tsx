@@ -38,13 +38,13 @@ function LoginPage() {
 
       const data = await loginApi(formData);
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("username", data.user.TenDangNhap);
-      localStorage.setItem("hoTen", data.user.HoTen || "");
-      localStorage.setItem("vaiTro", data.user.VaiTro || "");
-      localStorage.setItem("maTaiKhoan", String(data.user.MaTaiKhoan));
-      localStorage.setItem("loginTime", new Date().toISOString());
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("isAuthenticated", "true");
+      sessionStorage.setItem("username", data.user.TenDangNhap);
+      sessionStorage.setItem("hoTen", data.user.HoTen || "");
+      sessionStorage.setItem("vaiTro", data.user.VaiTro || "");
+      sessionStorage.setItem("maTaiKhoan", String(data.user.MaTaiKhoan));
+      sessionStorage.setItem("loginTime", new Date().toISOString());
 
       toast.success("Đăng nhập thành công");
       navigate("/");

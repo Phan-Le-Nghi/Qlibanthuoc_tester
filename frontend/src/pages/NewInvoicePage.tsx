@@ -149,7 +149,7 @@ function NewInvoicePage() {
 
       const payload = {
         ngayBan: new Date().toISOString(),
-        maTaiKhoan: Number(localStorage.getItem("maTaiKhoan")) || 1,
+        maTaiKhoan: Number(sessionStorage.getItem("maTaiKhoan")) || 1,
         khachHang: khachHang.trim() || "Khách lẻ",
         phuongThuc: trangThai === 2 ? phuongThuc : undefined,
         trangThai,

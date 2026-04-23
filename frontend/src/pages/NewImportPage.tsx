@@ -168,7 +168,7 @@ function NewImportPage() {
       const payload = {
         ngayNhap: new Date().toISOString(),
         trangThai,
-        maTaiKhoan: Number(localStorage.getItem("maTaiKhoan")) || 1,
+        maTaiKhoan: Number(sessionStorage.getItem("maTaiKhoan")) || 1,
         tongTien,
         chiTiet: items.map((item) => ({
           maSanPham: item.maSanPham,

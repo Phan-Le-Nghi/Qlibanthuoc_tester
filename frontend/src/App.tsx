@@ -13,7 +13,7 @@ import InvoiceDetailPage from "./pages/InvoiceDetailPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
-  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+  const isAuthenticated = sessionStorage.getItem("isAuthenticated") === "true";
 
   return (
     <>
