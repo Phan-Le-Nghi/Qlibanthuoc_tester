@@ -197,18 +197,24 @@ export const createInvoice = async (req: Request, res: Response) => {
       }
     }
 
-    const invoiceResult = await new sql.Request(transaction)
+    // Lấy mã hóa đơn mới
+    const idResult = await new sql.Request(transaction).query(`
+      SELECT ISNULL(MAX(MaHoaDonBan), 0) + 1 AS NewId
+      FROM HoaDonBan
+    `);
+
+    const maHoaDonBan = idResult.recordset[0].NewId;
+
+    await new sql.Request(transaction)
+      .input("MaHoaDonBan", sql.Int, maHoaDonBan)
       .input("NgayBan", sql.DateTime, new Date(ngayBan))
       .input("TongTien", sql.Decimal(18, 2), Number(tongTien))
       .input("TrangThai", sql.TinyInt, Number(trangThai))
       .input("MaTaiKhoan", sql.Int, Number(maTaiKhoan))
       .query(`
-        INSERT INTO HoaDonBan (NgayBan, TongTien, TrangThai, MaTaiKhoan)
-        OUTPUT INSERTED.MaHoaDonBan
-        VALUES (@NgayBan, @TongTien, @TrangThai, @MaTaiKhoan)
+        INSERT INTO HoaDonBan (MaHoaDonBan, NgayBan, TongTien, TrangThai, MaTaiKhoan)
+        VALUES (@MaHoaDonBan, @NgayBan, @TongTien, @TrangThai, @MaTaiKhoan)
       `);
-
-    const maHoaDonBan = invoiceResult.recordset[0].MaHoaDonBan;
 
     for (const item of chiTiet) {
       await new sql.Request(transaction)
