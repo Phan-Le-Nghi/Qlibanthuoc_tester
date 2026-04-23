@@ -217,14 +217,22 @@ export const createInvoice = async (req: Request, res: Response) => {
       `);
 
     for (const item of chiTiet) {
+      const ctResult = await new sql.Request(transaction).query(`
+        SELECT ISNULL(MAX(MaCTBan), 0) + 1 AS NewDetailId
+        FROM ChiTietBan
+      `);
+
+      const maCTBan = ctResult.recordset[0].NewDetailId;
+
       await new sql.Request(transaction)
+        .input("MaCTBan", sql.Int, maCTBan)
         .input("MaHoaDonBan", sql.Int, maHoaDonBan)
         .input("MaLoHang", sql.Int, Number(item.maLoHang))
         .input("SoLuong", sql.Int, Number(item.soLuong))
         .input("DonGia", sql.Decimal(18, 2), Number(item.donGia))
         .query(`
-          INSERT INTO ChiTietBan (MaHoaDonBan, MaLoHang, SoLuong, DonGia)
-          VALUES (@MaHoaDonBan, @MaLoHang, @SoLuong, @DonGia)
+          INSERT INTO ChiTietBan (MaCTBan, MaHoaDonBan, MaLoHang, SoLuong, DonGia)
+          VALUES (@MaCTBan, @MaHoaDonBan, @MaLoHang, @SoLuong, @DonGia)
         `);
 
       if (Number(trangThai) === 2) {

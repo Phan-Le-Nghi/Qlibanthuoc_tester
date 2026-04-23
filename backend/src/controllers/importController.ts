@@ -147,46 +147,66 @@ export const createImport = async (req: Request, res: Response) => {
 
     await transaction.begin();
 
-    const importResult = await new sql.Request(transaction)
+    // 1. Tạo MaHoaDonNhap một lần
+    const hdnResult = await new sql.Request(transaction).query(`
+      SELECT ISNULL(MAX(MaHoaDonNhap), 0) + 1 AS NewId
+      FROM HoaDonNhap
+    `);
+
+    const maHoaDonNhap = hdnResult.recordset[0].NewId;
+
+    // 2. Insert HoaDonNhap một lần
+    await new sql.Request(transaction)
+      .input("MaHoaDonNhap", sql.Int, maHoaDonNhap)
       .input("NgayNhap", sql.DateTime, new Date(ngayNhap))
       .input("TongTien", sql.Decimal(18, 2), Number(tongTien))
       .input("TrangThai", sql.TinyInt, Number(trangThai))
       .input("MaTaiKhoan", sql.Int, Number(maTaiKhoan))
       .query(`
-        INSERT INTO HoaDonNhap (NgayNhap, TongTien, TrangThai, MaTaiKhoan)
-        OUTPUT INSERTED.MaHoaDonNhap
-        VALUES (@NgayNhap, @TongTien, @TrangThai, @MaTaiKhoan)
+        INSERT INTO HoaDonNhap (MaHoaDonNhap, NgayNhap, TongTien, TrangThai, MaTaiKhoan)
+        VALUES (@MaHoaDonNhap, @NgayNhap, @TongTien, @TrangThai, @MaTaiKhoan)
       `);
 
-    const maHoaDonNhap = importResult.recordset[0].MaHoaDonNhap;
-
+    // 3. Loop từng item để insert chi tiết + lô hàng
     for (const item of chiTiet) {
-      const detailResult = await new sql.Request(transaction)
-        .input("MaHoaDonNhap", sql.Int, maHoaDonNhap)
+      const ctResult = await new sql.Request(transaction).query(`
+        SELECT ISNULL(MAX(MaCTNhap), 0) + 1 AS NewCT
+        FROM ChiTietNhap
+      `);
+
+      const maCTNhap = ctResult.recordset[0].NewCT;
+
+      await new sql.Request(transaction)
+        .input("MaCTNhap", sql.Int, maCTNhap)
         .input("MaSanPham", sql.Int, Number(item.maSanPham))
+        .input("MaHoaDonNhap", sql.Int, maHoaDonNhap)
         .input("SoLuong", sql.Int, Number(item.soLuong))
         .input("GiaNhap", sql.Decimal(18, 2), Number(item.giaNhap))
-        .input("SoLo", sql.NVarChar(50), item.soLo.trim())
-        .input("HanSuDung", sql.Date, item.hanSuDung)
         .query(`
-          INSERT INTO ChiTietNhap (MaSanPham, MaHoaDonNhap, SoLuong, GiaNhap, SoLo, HanSuDung)
-          OUTPUT INSERTED.MaCTNhap
-          VALUES (@MaSanPham, @MaHoaDonNhap, @SoLuong, @GiaNhap, @SoLo, @HanSuDung)
+          INSERT INTO ChiTietNhap (MaCTNhap, MaSanPham, MaHoaDonNhap, SoLuong, GiaNhap)
+          VALUES (@MaCTNhap, @MaSanPham, @MaHoaDonNhap, @SoLuong, @GiaNhap)
         `);
 
-      const maCTNhap = detailResult.recordset[0].MaCTNhap;
-
-      // Chỉ khi HOÀN TẤT mới cập nhật tồn kho
+      // Nếu tạo phiếu nhập hoàn tất thì thêm luôn lô hàng
       if (Number(trangThai) === 1) {
+        const loResult = await new sql.Request(transaction).query(`
+          SELECT ISNULL(MAX(MaLoHang), 0) + 1 AS NewLo
+          FROM LoHangNhap
+        `);
+
+        const maLoHang = loResult.recordset[0].NewLo;
+
         await new sql.Request(transaction)
-          .input("SoLo", sql.NVarChar(50), item.soLo.trim())
+          .input("MaLoHang", sql.Int, maLoHang)
+          .input("SoLo", sql.NVarChar(50), item.soLo)
           .input("SoLuong", sql.Int, Number(item.soLuong))
-          .input("HanSuDung", sql.Date, item.hanSuDung)
+          .input("HanSuDung", sql.DateTime, new Date(item.hanSuDung))
           .input("TrangThaiDuyet", sql.TinyInt, 1)
+          .input("MaSanPham", sql.Int, Number(item.maSanPham))
           .input("MaCTNhap", sql.Int, maCTNhap)
           .query(`
-            INSERT INTO LoHangNhap (SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaCTNhap)
-            VALUES (@SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaCTNhap)
+            INSERT INTO LoHangNhap (MaLoHang, SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaSanPham, MaCTNhap)
+            VALUES (@MaLoHang, @SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaSanPham, @MaCTNhap)
           `);
       }
     }
