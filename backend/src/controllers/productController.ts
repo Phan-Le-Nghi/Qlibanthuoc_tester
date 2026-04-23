@@ -12,6 +12,8 @@ export const getAllProducts = async (_req: Request, res: Response): Promise<Resp
         sp.GiaBan,
         sp.TrangThai,
         sp.MaNhom,
+        nt.TenNhom,   -- OK
+
         ISNULL(
           SUM(
             CASE 
@@ -21,23 +23,33 @@ export const getAllProducts = async (_req: Request, res: Response): Promise<Resp
           ), 
           0
         ) AS TonKho
-      FROM SanPham sp
-      LEFT JOIN ChiTietNhap ctn 
-        ON sp.MaSanPham = ctn.MaSanPham
-      LEFT JOIN HoaDonNhap hdn
-        ON ctn.MaHoaDonNhap = hdn.MaHoaDonNhap
-      LEFT JOIN LoHangNhap lh
-        ON ctn.MaCTNhap = lh.MaCTNhap
-      GROUP BY 
+
+    FROM SanPham sp
+
+    LEFT JOIN NhomThuoc nt   
+      ON sp.MaNhom = nt.MaNhom
+
+    LEFT JOIN ChiTietNhap ctn 
+      ON sp.MaSanPham = ctn.MaSanPham
+
+    LEFT JOIN HoaDonNhap hdn
+      ON ctn.MaHoaDonNhap = hdn.MaHoaDonNhap
+
+    LEFT JOIN LoHangNhap lh
+      ON ctn.MaCTNhap = lh.MaCTNhap
+
+    GROUP BY 
         sp.MaSanPham,
         sp.TenSanPham,
         sp.HamLuong,
         sp.DonViTinh,
         sp.GiaBan,
         sp.TrangThai,
-        sp.MaNhom
-      ORDER BY sp.MaSanPham DESC
-    `);
+        sp.MaNhom,
+        nt.TenNhom   
+
+    ORDER BY sp.MaSanPham DESC
+        `);
 
     return res.status(200).json(result.recordset);
   } catch (error) {
