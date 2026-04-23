@@ -12,7 +12,7 @@ export const getAllInvoices = async (_req: Request, res: Response) => {
         hdb.TrangThai,
         tk.HoTen AS NguoiTao,
         COUNT(ctb.MaCTBan) AS SoMatHang,
-        ISNULL(tt.PhuongThuc, N'-') AS PhuongThucThanhToan,
+        ISNULL(MAX(tt.PhuongThuc), N'-') AS PhuongThucThanhToan,
         N'Khách lẻ' AS KhachHang
       FROM HoaDonBan hdb
       INNER JOIN TaiKhoan tk
@@ -26,8 +26,7 @@ export const getAllInvoices = async (_req: Request, res: Response) => {
         hdb.NgayBan,
         hdb.TongTien,
         hdb.TrangThai,
-        tk.HoTen,
-        tt.PhuongThuc
+        tk.HoTen
       ORDER BY hdb.MaHoaDonBan DESC
     `);
 
@@ -144,14 +143,25 @@ export const createInvoice = async (req: Request, res: Response) => {
   try {
     const { ngayBan, maTaiKhoan, phuongThuc, trangThai, tongTien, chiTiet } = req.body;
 
-    if (!ngayBan || !maTaiKhoan || trangThai === undefined || !Array.isArray(chiTiet) || chiTiet.length === 0) {
+    if (
+      !maTaiKhoan ||
+      trangThai === undefined ||
+      !Array.isArray(chiTiet) ||
+      chiTiet.length === 0
+    ) {
       return res.status(400).json({
         message: "Dữ liệu hóa đơn không hợp lệ"
       });
     }
 
     for (const item of chiTiet) {
-      if (!item.maLoHang || !item.soLuong || Number(item.soLuong) <= 0 || !item.donGia || Number(item.donGia) <= 0) {
+      if (
+        !item.maLoHang ||
+        !item.soLuong ||
+        Number(item.soLuong) <= 0 ||
+        !item.donGia ||
+        Number(item.donGia) <= 0
+      ) {
         return res.status(400).json({
           message: "Chi tiết hóa đơn không hợp lệ"
         });
@@ -197,42 +207,28 @@ export const createInvoice = async (req: Request, res: Response) => {
       }
     }
 
-    // Lấy mã hóa đơn mới
-    const idResult = await new sql.Request(transaction).query(`
-      SELECT ISNULL(MAX(MaHoaDonBan), 0) + 1 AS NewId
-      FROM HoaDonBan
-    `);
-
-    const maHoaDonBan = idResult.recordset[0].NewId;
-
-    await new sql.Request(transaction)
-      .input("MaHoaDonBan", sql.Int, maHoaDonBan)
-      .input("NgayBan", sql.DateTime, new Date(ngayBan))
+    const invoiceResult = await new sql.Request(transaction)
+      .input("NgayBan", sql.DateTime, ngayBan ? new Date(ngayBan) : new Date())
       .input("TongTien", sql.Decimal(18, 2), Number(tongTien))
       .input("TrangThai", sql.TinyInt, Number(trangThai))
       .input("MaTaiKhoan", sql.Int, Number(maTaiKhoan))
       .query(`
-        INSERT INTO HoaDonBan (MaHoaDonBan, NgayBan, TongTien, TrangThai, MaTaiKhoan)
-        VALUES (@MaHoaDonBan, @NgayBan, @TongTien, @TrangThai, @MaTaiKhoan)
+        INSERT INTO HoaDonBan (NgayBan, TongTien, TrangThai, MaTaiKhoan)
+        OUTPUT INSERTED.MaHoaDonBan
+        VALUES (@NgayBan, @TongTien, @TrangThai, @MaTaiKhoan)
       `);
+
+    const maHoaDonBan = invoiceResult.recordset[0].MaHoaDonBan;
 
     for (const item of chiTiet) {
-      const ctResult = await new sql.Request(transaction).query(`
-        SELECT ISNULL(MAX(MaCTBan), 0) + 1 AS NewDetailId
-        FROM ChiTietBan
-      `);
-
-      const maCTBan = ctResult.recordset[0].NewDetailId;
-
       await new sql.Request(transaction)
-        .input("MaCTBan", sql.Int, maCTBan)
         .input("MaHoaDonBan", sql.Int, maHoaDonBan)
         .input("MaLoHang", sql.Int, Number(item.maLoHang))
         .input("SoLuong", sql.Int, Number(item.soLuong))
         .input("DonGia", sql.Decimal(18, 2), Number(item.donGia))
         .query(`
-          INSERT INTO ChiTietBan (MaCTBan, MaHoaDonBan, MaLoHang, SoLuong, DonGia)
-          VALUES (@MaCTBan, @MaHoaDonBan, @MaLoHang, @SoLuong, @DonGia)
+          INSERT INTO ChiTietBan (MaHoaDonBan, MaLoHang, SoLuong, DonGia)
+          VALUES (@MaHoaDonBan, @MaLoHang, @SoLuong, @DonGia)
         `);
 
       if (Number(trangThai) === 2) {
@@ -308,13 +304,13 @@ export const cancelInvoice = async (req: Request, res: Response) => {
 
     const invoice = checkResult.recordset[0];
 
-    if (invoice.TrangThai === 3) {
+    if (Number(invoice.TrangThai) === 3) {
       return res.status(400).json({
         message: "Hóa đơn đã bị hủy trước đó"
       });
     }
 
-    if (invoice.TrangThai === 2) {
+    if (Number(invoice.TrangThai) === 2) {
       return res.status(400).json({
         message: "Không thể hủy hóa đơn đã hoàn tất"
       });

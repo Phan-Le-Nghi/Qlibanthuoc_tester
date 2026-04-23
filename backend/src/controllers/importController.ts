@@ -71,8 +71,8 @@ export const getImportById = async (req: Request, res: Response) => {
           sp.DonViTinh,
           ctn.SoLuong,
           ctn.GiaNhap,
-          ISNULL(lh.SoLo, ctn.SoLo) AS SoLo,
-          ISNULL(CONVERT(VARCHAR(10), lh.HanSuDung, 23), CONVERT(VARCHAR(10), ctn.HanSuDung, 23)) AS HanSuDung,
+          ctn.SoLo,
+          CONVERT(VARCHAR(10), ctn.HanSuDung, 23) AS HanSuDung,
           ISNULL(lh.SoLuong, 0) AS SoLuongLo
         FROM ChiTietNhap ctn
         INNER JOIN SanPham sp
@@ -102,9 +102,8 @@ export const createImport = async (req: Request, res: Response) => {
     const { ngayNhap, trangThai, maTaiKhoan, tongTien, chiTiet } = req.body;
 
     if (
-      !ngayNhap ||
-      trangThai === undefined ||
       !maTaiKhoan ||
+      trangThai === undefined ||
       !Array.isArray(chiTiet) ||
       chiTiet.length === 0
     ) {
@@ -147,66 +146,45 @@ export const createImport = async (req: Request, res: Response) => {
 
     await transaction.begin();
 
-    // 1. Tạo MaHoaDonNhap một lần
-    const hdnResult = await new sql.Request(transaction).query(`
-      SELECT ISNULL(MAX(MaHoaDonNhap), 0) + 1 AS NewId
-      FROM HoaDonNhap
-    `);
-
-    const maHoaDonNhap = hdnResult.recordset[0].NewId;
-
-    // 2. Insert HoaDonNhap một lần
-    await new sql.Request(transaction)
-      .input("MaHoaDonNhap", sql.Int, maHoaDonNhap)
-      .input("NgayNhap", sql.DateTime, new Date(ngayNhap))
+    const importResult = await new sql.Request(transaction)
+      .input("NgayNhap", sql.DateTime, ngayNhap ? new Date(ngayNhap) : new Date())
       .input("TongTien", sql.Decimal(18, 2), Number(tongTien))
       .input("TrangThai", sql.TinyInt, Number(trangThai))
       .input("MaTaiKhoan", sql.Int, Number(maTaiKhoan))
       .query(`
-        INSERT INTO HoaDonNhap (MaHoaDonNhap, NgayNhap, TongTien, TrangThai, MaTaiKhoan)
-        VALUES (@MaHoaDonNhap, @NgayNhap, @TongTien, @TrangThai, @MaTaiKhoan)
+        INSERT INTO HoaDonNhap (NgayNhap, TongTien, TrangThai, MaTaiKhoan)
+        OUTPUT INSERTED.MaHoaDonNhap
+        VALUES (@NgayNhap, @TongTien, @TrangThai, @MaTaiKhoan)
       `);
 
-    // 3. Loop từng item để insert chi tiết + lô hàng
+    const maHoaDonNhap = importResult.recordset[0].MaHoaDonNhap;
+
     for (const item of chiTiet) {
-      const ctResult = await new sql.Request(transaction).query(`
-        SELECT ISNULL(MAX(MaCTNhap), 0) + 1 AS NewCT
-        FROM ChiTietNhap
-      `);
-
-      const maCTNhap = ctResult.recordset[0].NewCT;
-
-      await new sql.Request(transaction)
-        .input("MaCTNhap", sql.Int, maCTNhap)
-        .input("MaSanPham", sql.Int, Number(item.maSanPham))
+      const detailResult = await new sql.Request(transaction)
         .input("MaHoaDonNhap", sql.Int, maHoaDonNhap)
+        .input("MaSanPham", sql.Int, Number(item.maSanPham))
         .input("SoLuong", sql.Int, Number(item.soLuong))
         .input("GiaNhap", sql.Decimal(18, 2), Number(item.giaNhap))
+        .input("SoLo", sql.NVarChar(50), item.soLo)
+        .input("HanSuDung", sql.DateTime, new Date(item.hanSuDung))
         .query(`
-          INSERT INTO ChiTietNhap (MaCTNhap, MaSanPham, MaHoaDonNhap, SoLuong, GiaNhap)
-          VALUES (@MaCTNhap, @MaSanPham, @MaHoaDonNhap, @SoLuong, @GiaNhap)
+          INSERT INTO ChiTietNhap (MaHoaDonNhap, MaSanPham, SoLuong, GiaNhap, SoLo, HanSuDung)
+          OUTPUT INSERTED.MaCTNhap
+          VALUES (@MaHoaDonNhap, @MaSanPham, @SoLuong, @GiaNhap, @SoLo, @HanSuDung)
         `);
 
-      // Nếu tạo phiếu nhập hoàn tất thì thêm luôn lô hàng
+      const maCTNhap = detailResult.recordset[0].MaCTNhap;
+
       if (Number(trangThai) === 1) {
-        const loResult = await new sql.Request(transaction).query(`
-          SELECT ISNULL(MAX(MaLoHang), 0) + 1 AS NewLo
-          FROM LoHangNhap
-        `);
-
-        const maLoHang = loResult.recordset[0].NewLo;
-
         await new sql.Request(transaction)
-          .input("MaLoHang", sql.Int, maLoHang)
           .input("SoLo", sql.NVarChar(50), item.soLo)
           .input("SoLuong", sql.Int, Number(item.soLuong))
           .input("HanSuDung", sql.DateTime, new Date(item.hanSuDung))
           .input("TrangThaiDuyet", sql.TinyInt, 1)
-          .input("MaSanPham", sql.Int, Number(item.maSanPham))
           .input("MaCTNhap", sql.Int, maCTNhap)
           .query(`
-            INSERT INTO LoHangNhap (MaLoHang, SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaSanPham, MaCTNhap)
-            VALUES (@MaLoHang, @SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaSanPham, @MaCTNhap)
+            INSERT INTO LoHangNhap (SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaCTNhap)
+            VALUES (@SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaCTNhap)
           `);
       }
     }
@@ -289,18 +267,27 @@ export const completeImport = async (req: Request, res: Response) => {
       });
     }
 
-    // Chỉ lúc này mới cập nhật tồn kho
     for (const item of detailResult.recordset) {
-      await new sql.Request(transaction)
-        .input("SoLo", sql.NVarChar(50), item.SoLo)
-        .input("SoLuong", sql.Int, Number(item.SoLuong))
-        .input("HanSuDung", sql.Date, item.HanSuDung)
-        .input("TrangThaiDuyet", sql.TinyInt, 1)
+      const duplicateLot = await new sql.Request(transaction)
         .input("MaCTNhap", sql.Int, Number(item.MaCTNhap))
         .query(`
-          INSERT INTO LoHangNhap (SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaCTNhap)
-          VALUES (@SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaCTNhap)
+          SELECT MaLoHang
+          FROM LoHangNhap
+          WHERE MaCTNhap = @MaCTNhap
         `);
+
+      if (duplicateLot.recordset.length === 0) {
+        await new sql.Request(transaction)
+          .input("SoLo", sql.NVarChar(50), item.SoLo)
+          .input("SoLuong", sql.Int, Number(item.SoLuong))
+          .input("HanSuDung", sql.DateTime, new Date(item.HanSuDung))
+          .input("TrangThaiDuyet", sql.TinyInt, 1)
+          .input("MaCTNhap", sql.Int, Number(item.MaCTNhap))
+          .query(`
+            INSERT INTO LoHangNhap (SoLo, SoLuong, HanSuDung, TrangThaiDuyet, MaCTNhap)
+            VALUES (@SoLo, @SoLuong, @HanSuDung, @TrangThaiDuyet, @MaCTNhap)
+          `);
+      }
     }
 
     await new sql.Request(transaction)
