@@ -1,4 +1,4 @@
-import axios from "axios";
+import axiosClient from "./axiosClient";
 
 export interface LoginPayload {
   tenDangNhap: string;
@@ -16,9 +16,7 @@ export interface LoginResponse {
   };
 }
 
-const BASE_URL = "http://localhost:3001/api/auth";
-
-export const loginApi = async (data: LoginPayload): Promise<LoginResponse> => {
-  const res = await axios.post<LoginResponse>(`${BASE_URL}/login`, data);
+export const loginApi = async (data: LoginPayload) => {
+  const res = await axiosClient.post("/auth/login", data);
   return res.data;
 };
