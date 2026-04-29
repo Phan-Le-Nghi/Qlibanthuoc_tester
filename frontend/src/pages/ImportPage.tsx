@@ -11,18 +11,23 @@ function ImportPage() {
 
   const userRole = sessionStorage.getItem("vaiTro");
   const isAdmin = userRole === "Admin";
+
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [imports, setImports] = useState<ImportReceipt[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
     try {
       const data = await getAllImports();
-      setImports(data);
+      setImports(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
       toast.error("Không tải được danh sách phiếu nhập");
+      setImports([]);
     } finally {
       setLoading(false);
     }
@@ -39,11 +44,22 @@ function ImportPage() {
 
     return imports.filter((item) => {
       const maPhieu = `PN${String(item.MaHoaDonNhap).padStart(3, "0")}`.toLowerCase();
-      const nguoiTao = item.NguoiTao?.toLowerCase() || "";
+      const nguoiTao = String(item.NguoiTao ?? "").toLowerCase();
 
       return maPhieu.includes(keyword) || nguoiTao.includes(keyword);
     });
   }, [imports, searchTerm]);
+
+  const totalPages = Math.ceil(filteredImports.length / pageSize);
+
+  const paginatedImports = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredImports.slice(startIndex, startIndex + pageSize);
+  }, [filteredImports, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -58,7 +74,11 @@ function ImportPage() {
   };
 
   const formatDateTime = (value: string) => {
+    if (!value) return "-";
+
     const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+
     return date.toLocaleString("vi-VN");
   };
 
@@ -131,7 +151,7 @@ function ImportPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredImports.map((item) => (
+                  paginatedImports.map((item) => (
                     <tr key={item.MaHoaDonNhap}>
                       <td className="td-code">
                         {`PN${String(item.MaHoaDonNhap).padStart(3, "0")}`}
@@ -139,9 +159,9 @@ function ImportPage() {
                       <td>{formatDateTime(item.NgayNhap)}</td>
                       <td>{item.SoMatHang}</td>
                       <td className="td-price">
-                        {Number(item.TongTien).toLocaleString("vi-VN")} đ
+                        {Number(item.TongTien ?? 0).toLocaleString("vi-VN")} đ
                       </td>
-                      <td>{item.NguoiTao}</td>
+                      <td>{item.NguoiTao || "-"}</td>
                       <td className="td-status">
                         <span className={getStatusClass(item.TrangThai)}>
                           {getStatusLabel(item.TrangThai)}
@@ -167,8 +187,33 @@ function ImportPage() {
 
           <div className="table-footer">
             <p>
-              Hiển thị <b>{filteredImports.length}</b> trên <b>{imports.length}</b> phiếu nhập
+              Hiển thị <b>{paginatedImports.length}</b> trên{" "}
+              <b>{filteredImports.length}</b> phiếu nhập
             </p>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  Trang trước
+                </button>
+
+                <span className="page-info">
+                  Trang {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

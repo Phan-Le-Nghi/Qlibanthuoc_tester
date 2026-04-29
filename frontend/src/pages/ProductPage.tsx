@@ -1,4 +1,4 @@
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useMemo, useState, ChangeEvent } from "react";
 import { Plus, Search, Edit, Trash2, Filter } from "lucide-react";
 import { toast } from "sonner";
 import Sidebar from "../components/Sidebar";
@@ -25,6 +25,7 @@ interface ProductFormData {
 function ProductPage() {
   const userRole = sessionStorage.getItem("vaiTro");
   const isAdmin = userRole === "Admin";
+
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -33,6 +34,9 @@ function ProductPage() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState<boolean>(false);
   const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
@@ -52,11 +56,32 @@ function ProductPage() {
     loadData();
   }, []);
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.TenSanPham.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(product.MaSanPham).includes(searchTerm)
-  );
+  const filteredProducts = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const maSanPham = `SP${String(product.MaSanPham).padStart(3, "0")}`.toLowerCase();
+      const tenSanPham = String(product.TenSanPham ?? "").toLowerCase();
+
+      return (
+        !keyword ||
+        tenSanPham.includes(keyword) ||
+        maSanPham.includes(keyword) ||
+        String(product.MaSanPham).includes(keyword)
+      );
+    });
+  }, [products, searchTerm]);
+
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredProducts.slice(startIndex, startIndex + pageSize);
+  }, [filteredProducts, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleAddProduct = async (data: ProductFormData) => {
     try {
@@ -100,7 +125,6 @@ function ProductPage() {
       toast.error("Cập nhật sản phẩm thất bại");
     }
   };
-
 
   const openDeleteConfirm = (id: number) => {
     setDeletingProductId(id);
@@ -214,7 +238,7 @@ function ProductPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => (
+                  paginatedProducts.map((product) => (
                     <tr key={product.MaSanPham}>
                       <td className="td-code">
                         {`SP${String(product.MaSanPham).padStart(3, "0")}`}
@@ -234,32 +258,36 @@ function ProductPage() {
                               : "status-badge inactive"
                           }
                         >
-                          {product.TrangThai === 1 ? "Hoạt động" : "Không hoạt động"}
+                          {product.TrangThai === 1
+                            ? "Hoạt động"
+                            : "Không hoạt động"}
                         </span>
                       </td>
-                    <td className="td-action">
-                      <div className="action-buttons">
-                        {isAdmin && (
-                          <>
-                            <button
-                              className="icon-btn"
-                              onClick={() => openEditModal(product)}
-                              title="Sửa"
-                            >
-                              <Edit size={16} />
-                            </button>
+                      <td className="td-action">
+                        <div className="action-buttons">
+                          {isAdmin && (
+                            <>
+                              <button
+                                className="icon-btn"
+                                onClick={() => openEditModal(product)}
+                                title="Sửa"
+                              >
+                                <Edit size={16} />
+                              </button>
 
-                            <button
-                              className="icon-btn danger"
-                              onClick={() => openDeleteConfirm(product.MaSanPham)}
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>  
+                              <button
+                                className="icon-btn danger"
+                                onClick={() =>
+                                  openDeleteConfirm(product.MaSanPham)
+                                }
+                                title="Xóa"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -269,8 +297,33 @@ function ProductPage() {
 
           <div className="table-footer">
             <p>
-              Hiển thị <b>{filteredProducts.length}</b> trên <b>{products.length}</b> sản phẩm
+              Hiển thị <b>{paginatedProducts.length}</b> trên{" "}
+              <b>{filteredProducts.length}</b> sản phẩm
             </p>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  Trang trước
+                </button>
+
+                <span className="page-info">
+                  Trang {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

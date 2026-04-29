@@ -24,7 +24,11 @@ function InvoicesPage() {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<InvoiceStatusFilter>("Tất cả");
+  const [statusFilter, setStatusFilter] =
+    useState<InvoiceStatusFilter>("Tất cả");
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
@@ -81,14 +85,16 @@ function InvoicesPage() {
     const keyword = searchTerm.trim().toLowerCase();
 
     return invoices.filter((invoice) => {
-      const maHoaDon = `HD${String(invoice.MaHoaDonBan).padStart(6, "0")}`.toLowerCase();
+      const maHoaDon = `HD${String(invoice.MaHoaDonBan).padStart(
+        6,
+        "0"
+      )}`.toLowerCase();
+
       const khachHang = String(invoice.KhachHang ?? "").toLowerCase();
       const statusText = getStatusLabel(invoice.TrangThai);
 
       const matchKeyword =
-        !keyword ||
-        maHoaDon.includes(keyword) ||
-        khachHang.includes(keyword);
+        !keyword || maHoaDon.includes(keyword) || khachHang.includes(keyword);
 
       const matchStatus =
         statusFilter === "Tất cả" || statusText === statusFilter;
@@ -96,6 +102,17 @@ function InvoicesPage() {
       return matchKeyword && matchStatus;
     });
   }, [invoices, searchTerm, statusFilter]);
+
+  const totalPages = Math.ceil(filteredInvoices.length / pageSize);
+
+  const paginatedInvoices = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredInvoices.slice(startIndex, startIndex + pageSize);
+  }, [filteredInvoices, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -142,7 +159,9 @@ function InvoicesPage() {
             <select
               className="filter-select"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as InvoiceStatusFilter)}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as InvoiceStatusFilter)
+              }
             >
               <option value="Tất cả">Tất cả trạng thái</option>
               <option value="Nháp">Nháp</option>
@@ -180,7 +199,7 @@ function InvoicesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((invoice) => (
+                  paginatedInvoices.map((invoice) => (
                     <tr key={invoice.MaHoaDonBan}>
                       <td className="td-code">
                         {`HD${String(invoice.MaHoaDonBan).padStart(6, "0")}`}
@@ -217,8 +236,33 @@ function InvoicesPage() {
 
           <div className="table-footer">
             <p>
-              Hiển thị <b>{filteredInvoices.length}</b> trên <b>{invoices.length}</b> hóa đơn
+              Hiển thị <b>{paginatedInvoices.length}</b> trên{" "}
+              <b>{filteredInvoices.length}</b> hóa đơn
             </p>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  Trang trước
+                </button>
+
+                <span className="page-info">
+                  Trang {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

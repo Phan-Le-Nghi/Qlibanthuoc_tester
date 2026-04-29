@@ -13,6 +13,9 @@ function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("Tất cả");
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
+
   const loadData = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -41,7 +44,9 @@ function InventoryPage() {
     return date;
   };
 
-  const getInventoryStatus = (hanSuDung?: string): Exclude<FilterStatus, "Tất cả"> => {
+  const getInventoryStatus = (
+    hanSuDung?: string
+  ): Exclude<FilterStatus, "Tất cả"> => {
     const expiryDate = parseDateSafe(hanSuDung);
     if (!expiryDate) return "Hết hạn";
 
@@ -62,9 +67,11 @@ function InventoryPage() {
     return inventory.filter((item) => {
       const status = getInventoryStatus(item.HanSuDung);
 
+      const tenSanPham = String(item.TenSanPham ?? "").toLowerCase();
+      const soLo = String(item.SoLo ?? "").toLowerCase();
+
       const matchKeyword =
-        item.TenSanPham.toLowerCase().includes(keyword) ||
-        item.SoLo.toLowerCase().includes(keyword);
+        !keyword || tenSanPham.includes(keyword) || soLo.includes(keyword);
 
       const matchStatus =
         statusFilter === "Tất cả" ? true : status === statusFilter;
@@ -72,6 +79,17 @@ function InventoryPage() {
       return matchKeyword && matchStatus;
     });
   }, [inventory, searchTerm, statusFilter]);
+
+  const totalPages = Math.ceil(filteredInventory.length / pageSize);
+
+  const paginatedInventory = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredInventory.slice(startIndex, startIndex + pageSize);
+  }, [filteredInventory, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const tongSoLo = inventory.length;
 
@@ -106,7 +124,9 @@ function InventoryPage() {
           <div className="page-header">
             <div>
               <h2 className="page-title">Tồn kho</h2>
-              <p className="page-subtitle">Quản lý tồn kho theo lô và hạn sử dụng</p>
+              <p className="page-subtitle">
+                Quản lý tồn kho theo lô và hạn sử dụng
+              </p>
             </div>
           </div>
 
@@ -124,7 +144,9 @@ function InventoryPage() {
                 <Boxes size={20} />
               </div>
               <p className="summary-label">Tổng số lượng</p>
-              <h3 className="summary-value">{tongSoLuong.toLocaleString("vi-VN")}</h3>
+              <h3 className="summary-value">
+                {tongSoLuong.toLocaleString("vi-VN")}
+              </h3>
             </div>
 
             <div className="summary-card">
@@ -188,7 +210,7 @@ function InventoryPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredInventory.map((item) => {
+                  paginatedInventory.map((item) => {
                     const status = getInventoryStatus(item.HanSuDung);
 
                     return (
@@ -218,8 +240,33 @@ function InventoryPage() {
 
           <div className="table-footer">
             <p>
-              Hiển thị <b>{filteredInventory.length}</b> trên <b>{inventory.length}</b> lô hàng
+              Hiển thị <b>{paginatedInventory.length}</b> trên{" "}
+              <b>{filteredInventory.length}</b> lô hàng
             </p>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  Trang trước
+                </button>
+
+                <span className="page-info">
+                  Trang {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
