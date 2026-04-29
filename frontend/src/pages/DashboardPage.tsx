@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   TrendingUp,
   Package,
@@ -51,19 +51,11 @@ function DashboardPage() {
 
   const monthlyRevenue = data?.doanhThu ?? 0;
 
-  const fakeTrendData = useMemo(() => {
-    const base = Math.max(monthlyRevenue, 100000);
-    return [
-      Math.round(base * 0.45),
-      Math.round(base * 0.52),
-      Math.round(base * 0.48),
-      Math.round(base * 0.61),
-      Math.round(base * 0.55),
-      Math.round(base * 0.67)
-    ];
-  }, [monthlyRevenue]);
-
-  const maxTrend = Math.max(...fakeTrendData, 1);
+  const revenueChartData = data?.doanhThuTheoThang ?? [];
+  const maxTrend = Math.max(
+    ...revenueChartData.map((item) => Number(item.DoanhThu ?? 0)),
+    1
+  );
 
   const topProducts = data?.topSanPhamBanChay ?? [];
 
@@ -147,36 +139,45 @@ function DashboardPage() {
                   <div className="dashboard-panel-header">
                     <div>
                       <h3 className="dashboard-panel-title">
-                        Doanh thu 6 giai đoạn gần đây
+                        Doanh thu theo tháng
                       </h3>
                       <p className="dashboard-panel-subtitle">
-                        Ước lượng từ dữ liệu hiện có
+                        Dữ liệu từ hóa đơn đã thanh toán
                       </p>
                     </div>
                   </div>
 
                   <div className="fake-line-chart">
                     <div className="fake-line-grid">
-                      {fakeTrendData.map((value, index) => {
-                        const heightPercent = (value / maxTrend) * 100;
-                        return (
-                          <div key={index} className="fake-line-point-wrap">
-                            <div className="fake-line-column">
-                              <div
-                                className="fake-line-dot"
-                                style={{ bottom: `${heightPercent}%` }}
-                              />
-                              {index < fakeTrendData.length - 1 && (
+                      {revenueChartData.length === 0 ? (
+                        <div className="empty-import-box">Chưa có dữ liệu doanh thu theo tháng</div>
+                      ) : (
+                        revenueChartData.map((item, index) => {
+                          const value = Number(item.DoanhThu ?? 0);
+                          const heightPercent = (value / maxTrend) * 100;
+
+                          return (
+                            <div key={`${item.Nam}-${item.Thang}`} className="fake-line-point-wrap">
+                              <div className="fake-line-column">
                                 <div
-                                  className="fake-line-segment"
+                                  className="fake-line-dot"
+                                  title={formatCurrency(value)}
                                   style={{ bottom: `${heightPercent}%` }}
                                 />
-                              )}
+
+                                {index < revenueChartData.length - 1 && (
+                                  <div
+                                    className="fake-line-segment"
+                                    style={{ bottom: `${heightPercent}%` }}
+                                  />
+                                )}
+                              </div>
+
+                              <span className="fake-line-label">{item.Nhan}</span>
                             </div>
-                            <span className="fake-line-label">T{index + 1}</span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>

@@ -10,7 +10,8 @@ export const getDashboardSummary = async (_req: Request, res: Response) => {
       revenueResult,
       importCostResult,
       recentActivityResult,
-      topProductsResult
+      topProductsResult,
+      monthlyRevenueResult
     ] = await Promise.all([
       pool.request().query(`
         SELECT COUNT(*) AS TongSanPham
@@ -25,11 +26,9 @@ export const getDashboardSummary = async (_req: Request, res: Response) => {
       pool.request().query(`
         SELECT COUNT(*) AS SoLoCanHan
         FROM LoHangNhap lh
-        INNER JOIN ChiTietNhap ctn
-          ON lh.MaCTNhap = ctn.MaCTNhap
-        INNER JOIN HoaDonNhap hdn
-          ON ctn.MaHoaDonNhap = hdn.MaHoaDonNhap
-        WHERE hdn.TrangThai = 1   -- 🔥 CHỈ HOÀN TẤT
+        INNER JOIN ChiTietNhap ctn ON lh.MaCTNhap = ctn.MaCTNhap
+        INNER JOIN HoaDonNhap hdn ON ctn.MaHoaDonNhap = hdn.MaHoaDonNhap
+        WHERE hdn.TrangThai = 1
           AND lh.HanSuDung >= CAST(GETDATE() AS DATE)
           AND lh.HanSuDung <= DATEADD(DAY, 30, CAST(GETDATE() AS DATE))
           AND lh.SoLuong > 0
@@ -93,20 +92,25 @@ export const getDashboardSummary = async (_req: Request, res: Response) => {
           SUM(ctb.SoLuong) AS TongSoLuongBan,
           SUM(ctb.SoLuong * ctb.DonGia) AS TongDoanhThu
         FROM ChiTietBan ctb
-        INNER JOIN HoaDonBan hdb
-          ON ctb.MaHoaDonBan = hdb.MaHoaDonBan
-        INNER JOIN LoHangNhap lh
-          ON ctb.MaLoHang = lh.MaLoHang
-        INNER JOIN ChiTietNhap ctn
-          ON lh.MaCTNhap = ctn.MaCTNhap
-        INNER JOIN SanPham sp
-          ON ctn.MaSanPham = sp.MaSanPham
+        INNER JOIN HoaDonBan hdb ON ctb.MaHoaDonBan = hdb.MaHoaDonBan
+        INNER JOIN LoHangNhap lh ON ctb.MaLoHang = lh.MaLoHang
+        INNER JOIN ChiTietNhap ctn ON lh.MaCTNhap = ctn.MaCTNhap
+        INNER JOIN SanPham sp ON ctn.MaSanPham = sp.MaSanPham
         WHERE hdb.TrangThai = 2
-        GROUP BY
-          sp.MaSanPham,
-          sp.TenSanPham,
-          sp.HamLuong
+        GROUP BY sp.MaSanPham, sp.TenSanPham, sp.HamLuong
         ORDER BY TongDoanhThu DESC, TongSoLuongBan DESC
+      `),
+
+      pool.request().query(`
+        SELECT TOP 6
+          YEAR(NgayBan) AS Nam,
+          MONTH(NgayBan) AS Thang,
+          CONCAT(N'T', MONTH(NgayBan), '/', YEAR(NgayBan)) AS Nhan,
+          ISNULL(SUM(TongTien), 0) AS DoanhThu
+        FROM HoaDonBan
+        WHERE TrangThai = 2
+        GROUP BY YEAR(NgayBan), MONTH(NgayBan)
+        ORDER BY YEAR(NgayBan), MONTH(NgayBan)
       `)
     ]);
 
@@ -124,6 +128,7 @@ export const getDashboardSummary = async (_req: Request, res: Response) => {
       doanhThu,
       chiPhiNhap,
       loiNhuanTamTinh,
+      doanhThuTheoThang: monthlyRevenueResult.recordset,
       hoatDongGanDay: recentActivityResult.recordset,
       topSanPhamBanChay: topProductsResult.recordset
     });

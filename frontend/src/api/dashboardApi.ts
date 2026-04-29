@@ -22,6 +22,12 @@ export interface DashboardSummary {
   doanhThu: number;
   chiPhiNhap: number;
   loiNhuanTamTinh: number;
+  doanhThuTheoThang: {
+    Nam: number;
+    Thang: number;
+    Nhan: string;
+    DoanhThu: number;
+  }[];
   hoatDongGanDay: DashboardActivityItem[];
   topSanPhamBanChay: TopSanPhamBanChayItem[];
 }
