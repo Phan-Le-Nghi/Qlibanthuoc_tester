@@ -102,15 +102,44 @@ export const getDashboardSummary = async (_req: Request, res: Response) => {
       `),
 
       pool.request().query(`
-        SELECT TOP 6
-          YEAR(NgayBan) AS Nam,
-          MONTH(NgayBan) AS Thang,
-          CONCAT(N'T', MONTH(NgayBan), '/', YEAR(NgayBan)) AS Nhan,
-          ISNULL(SUM(TongTien), 0) AS DoanhThu
-        FROM HoaDonBan
-        WHERE TrangThai = 2
-        GROUP BY YEAR(NgayBan), MONTH(NgayBan)
-        ORDER BY YEAR(NgayBan), MONTH(NgayBan)
+        WITH Last6Months AS (
+          SELECT 
+            0 AS SoThuTu,
+            YEAR(GETDATE()) AS Nam,
+            MONTH(GETDATE()) AS Thang,
+            DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS NgayDauThang
+          UNION ALL
+          SELECT
+            SoThuTu + 1,
+            YEAR(DATEADD(MONTH, -(SoThuTu + 1), GETDATE())),
+            MONTH(DATEADD(MONTH, -(SoThuTu + 1), GETDATE())),
+            DATEFROMPARTS(
+              YEAR(DATEADD(MONTH, -(SoThuTu + 1), GETDATE())),
+              MONTH(DATEADD(MONTH, -(SoThuTu + 1), GETDATE())),
+              1
+            )
+          FROM Last6Months
+          WHERE SoThuTu < 5
+        ),
+        RevenueByMonth AS (
+          SELECT
+            YEAR(NgayBan) AS Nam,
+            MONTH(NgayBan) AS Thang,
+            SUM(TongTien) AS DoanhThu
+          FROM HoaDonBan
+          WHERE TrangThai = 2
+          GROUP BY YEAR(NgayBan), MONTH(NgayBan)
+        )
+        SELECT
+          m.Nam,
+          m.Thang,
+          CONCAT(N'T', m.Thang, '/', m.Nam) AS Nhan,
+          ISNULL(r.DoanhThu, 0) AS DoanhThu
+        FROM Last6Months m
+        LEFT JOIN RevenueByMonth r
+          ON m.Nam = r.Nam
+          AND m.Thang = r.Thang
+        ORDER BY m.NgayDauThang
       `)
     ]);
 

@@ -139,7 +139,7 @@ function DashboardPage() {
                   <div className="dashboard-panel-header">
                     <div>
                       <h3 className="dashboard-panel-title">
-                        Doanh thu theo tháng
+                        Doanh thu 6 tháng gần nhất
                       </h3>
                       <p className="dashboard-panel-subtitle">
                         Dữ liệu từ hóa đơn đã thanh toán
